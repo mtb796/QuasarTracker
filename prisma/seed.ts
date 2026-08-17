@@ -40,7 +40,7 @@ async function main(): Promise<void> {
 
   const password = process.env.SEED_PASSWORD || "changeme123";
 
-  const [you] = await Promise.all([
+  const [you, coworker] = await Promise.all([
     db.user.upsert({
       where: { email: "you@example.com" },
       update: {},
@@ -57,7 +57,7 @@ async function main(): Promise<void> {
     }),
   ]);
 
-  const result = await seedDemoPortfolio(you.id);
+  const result = await seedDemoPortfolio(you.id, coworker.id);
   if (result) {
     console.log(
       `Seeded ${result.properties} properties, ${result.units} units, ${result.tenants} tenants.`,

@@ -50,6 +50,37 @@ The milestone maths is pure and separately tested:
 npm run test:renewals    # boundary, DST and hard-line cases
 ```
 
+## Import from a spreadsheet
+
+**Import** in the nav loads properties, units, tenants and lease dates from an
+`.xlsx` or `.csv` — no AppFolio API needed. One row per unit.
+
+Column names don't matter. They're matched automatically (`Lease Expiration`,
+`Renewal Date` and `lease_end` all find the same field), and the mapping is
+shown for correction **before anything is written**. A title row or a blank row
+above the table is fine — the header is found by looking for the first row with
+real content.
+
+Two columns carry weight:
+
+- **Property** — required. Rows without one are skipped and counted.
+- **Lease end / renewal date** — this is what creates the 150/120/100/90
+  milestones. A unit imports fine without it but is never tracked for renewal,
+  so the preview reports how many readable dates it found and flags any it
+  couldn't parse.
+
+Everything else — unit, tenant, phone, email, rent, market rent, owner, address,
+beds, baths — is used when present and ignored when absent. Unmapped columns are
+kept on the record and visible under "All AppFolio fields" on the unit page,
+so nothing in the sheet is lost.
+
+**Re-importing an updated sheet edits in place** rather than duplicating:
+properties match on name, units on property + unit name, tenants on unit + name.
+Imported rows carry no AppFolio id, and the sync only ever touches rows that
+have one, so importing and syncing can coexist.
+
+---
+
 ## Email digest
 
 A daily email, worst-first: anything past the 90-day line, then other notice

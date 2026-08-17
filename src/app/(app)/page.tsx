@@ -20,7 +20,13 @@ export default async function DashboardPage() {
       take: 25,
     }),
     db.handoff.findMany({
-      where: { status: "open", NOT: { assigneeId: user.id } },
+      // `NOT: { assigneeId }` drops unassigned rows: in SQL, NOT (NULL = 'x')
+      // is NULL, not true. Spelled out so an unassigned task can't vanish from
+      // both this list and "assigned to me".
+      where: {
+        status: "open",
+        OR: [{ assigneeId: null }, { assigneeId: { not: user.id } }],
+      },
       orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
       include: { creator: true, assignee: true, property: true, unit: true },
       take: 25,

@@ -25,7 +25,10 @@ const PORTFOLIO = [
 export type DemoResult = { properties: number; units: number; tenants: number; renewals: number };
 
 /** Idempotent by refusing to run twice — does nothing if any property exists. */
-export async function seedDemoPortfolio(authorId: string): Promise<DemoResult | null> {
+export async function seedDemoPortfolio(
+  authorId: string,
+  assigneeId?: string,
+): Promise<DemoResult | null> {
   if ((await db.property.count()) > 0) return null;
 
   const owner = await db.owner.create({
@@ -118,6 +121,7 @@ export async function seedDemoPortfolio(authorId: string): Promise<DemoResult | 
       title: "Schedule unit B carpet install",
       detail: "Vendor said they have Thursday or Friday open.",
       creatorId: authorId,
+      assigneeId: assigneeId ?? authorId,
       propertyId: larchmere,
       unitId: vacant.id,
       dueDate: addDays(today, 3),
