@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Quasar brand
+   ---------------------------------------------------------------------------
+   Taken from the logo: a charcoal-slate accretion disk, a crimson jet, and an
+   amber core, with the crimson->amber gradient as the one bright accent.
+
+   Slate carries the interface (text, primary buttons, the wordmark). Crimson
+   is the single action colour. Amber and crimson also do semantic duty on the
+   two unit states that need attention — vacant and on-notice — which keeps the
+   palette tight instead of introducing unrelated hues.
+
+   These are Tailwind v4 @theme tokens, so each one generates real utilities:
+   --color-muted gives text-muted / bg-muted / border-muted, and so on.
+   --------------------------------------------------------------------------- */
+
+@theme {
+  --color-ink: #343945;
+  --color-slate: #3d4250;
+  --color-muted: #767c8a;
+  --color-line: #e2e5eb;
+  --color-canvas: #f6f7f9;
+
+  --color-accent: #e4335c;
+  --color-accent-strong: #c8244a;
+  --color-ember: #f5a623;
+
+  --color-crimson-tint: #fdeef2;
+  --color-ember-tint: #fef4e4;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The wordmark reads as wide-tracked uppercase, matching the logo. */
+.wordmark {
+  font-weight: 400;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+}
+
+/* The logo's jet gradient, for the few places that earn a bright accent. */
+.quasar-gradient {
+  background-image: linear-gradient(115deg, var(--color-accent), var(--color-ember));
+}
+
+@layer components {
+  .card {
+    @apply rounded-lg border border-line bg-white;
+  }
+  .btn {
+    @apply inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border
+           border-line bg-white px-3 py-1.5 text-sm font-medium text-ink
+           hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply border-transparent bg-ink text-white hover:bg-slate;
+  }
+  .btn-accent {
+    @apply border-transparent bg-accent text-white hover:bg-accent-strong;
+  }
+  .input {
+    @apply w-full rounded-md border border-line bg-white px-3 py-2 text-sm
+           outline-none focus:border-accent;
+  }
+  .label {
+    @apply mb-1 block text-xs font-medium uppercase tracking-wide text-muted;
+  }
+  .pill {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+  }
+  .th {
+    @apply px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted;
+  }
+  .td {
+    @apply px-3 py-2 align-top text-sm;
+  }
+}

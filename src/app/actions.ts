@@ -1,0 +1,248 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
+import { createSession, destroySession, requireUser, verifyPassword } from "@/lib/auth";
+import { syncAll } from "@/lib/sync";
+import { generateRenewals } from "@/lib/renewals";
+import { sendDigests } from "@/lib/send-digest";
+
+/** Server actions return this so forms can show a message without throwing. */
+export type ActionState = { error?: string; ok?: string };
+
+// --- auth -----------------------------------------------------------------
+
+export async function login(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
+  const password = String(formData.get("password") ?? "");
+
+  if (!email || !password) return { error: "Enter your email and password." };
+
+  const user = await db.user.findUnique({ where: { email } });
+  // Same message either way, so this can't be used to discover valid emails.
+  if (!user || !(await verifyPassword(password, user.passwordHash))) {
+    return { error: "Email or password is incorrect." };
+  }
+
+  await createSession(user.id);
+  redirect("/");
+}
+
+export async function logout(): Promise<void> {
+  await destroySession();
+  redirect("/login");
+}
+
+// --- notes ----------------------------------------------------------------
+
+export async function addNote(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const body = String(formData.get("body") ?? "").trim();
+  if (!body) return;
+
+  await db.note.create({
+    data: {
+      body,
+      authorId: user.id,
+      propertyId: optional(formData.get("propertyId")),
+      unitId: optional(formData.get("unitId")),
+      tenantId: optional(formData.get("tenantId")),
+      ownerId: optional(formData.get("ownerId")),
+    },
+  });
+
+  revalidatePath(String(formData.get("returnTo") ?? "/"));
+}
+
+export async function togglePin(formData: FormData): Promise<void> {
+  await requireUser();
+  const id = String(formData.get("id") ?? "");
+  const note = await db.note.findUnique({ where: { id }, select: { pinned: true } });
+  if (!note) return;
+
+  await db.note.update({ where: { id }, data: { pinned: !note.pinned } });
+  revalidatePath(String(formData.get("returnTo") ?? "/"));
+}
+
+export async function deleteNote(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const id = String(formData.get("id") ?? "");
+
+  // Only the author can delete their own note.
+  const note = await db.note.findUnique({ where: { id }, select: { authorId: true } });
+  if (!note || note.authorId !== user.id) return;
+
+  await db.note.delete({ where: { id } });
+  revalidatePath(String(formData.get("returnTo") ?? "/"));
+}
+
+// --- handoffs -------------------------------------------------------------
+
+export async function createHandoff(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const title = String(formData.get("title") ?? "").trim();
+  if (!title) return;
+
+  const dueRaw = String(formData.get("dueDate") ?? "").trim();
+
+  await db.handoff.create({
+    data: {
+      title,
+      detail: optional(formData.get("detail")),
+      creatorId: user.id,
+      assigneeId: optional(formData.get("assigneeId")),
+      dueDate: dueRaw ? new Date(`${dueRaw}T12:00:00`) : null,
+      propertyId: optional(formData.get("propertyId")),
+      unitId: optional(formData.get("unitId")),
+    },
+  });
+
+  revalidatePath(String(formData.get("returnTo") ?? "/tasks"));
+}
+
+export async function toggleHandoff(formData: FormData): Promise<void> {
+  await requireUser();
+  const id = String(formData.get("id") ?? "");
+  const task = await db.handoff.findUnique({ where: { id }, select: { status: true } });
+  if (!task) return;
+
+  const done = task.status !== "done";
+  await db.handoff.update({
+    where: { id },
+    data: { status: done ? "done" : "open", completedAt: done ? new Date() : null },
+  });
+
+  revalidatePath(String(formData.get("returnTo") ?? "/tasks"));
+}
+
+export async function deleteHandoff(formData: FormData): Promise<void> {
+  await requireUser();
+  await db.handoff.delete({ where: { id: String(formData.get("id") ?? "") } });
+  revalidatePath(String(formData.get("returnTo") ?? "/tasks"));
+}
+
+// --- our workflow status overlay -----------------------------------------
+
+export async function setWorkStatus(formData: FormData): Promise<void> {
+  await requireUser();
+  const value = String(formData.get("workStatus") ?? "").trim() || null;
+  const propertyId = optional(formData.get("propertyId"));
+  const unitId = optional(formData.get("unitId"));
+
+  if (unitId) await db.unit.update({ where: { id: unitId }, data: { workStatus: value } });
+  else if (propertyId)
+    await db.property.update({ where: { id: propertyId }, data: { workStatus: value } });
+
+  revalidatePath(String(formData.get("returnTo") ?? "/"));
+}
+
+// --- AppFolio -------------------------------------------------------------
+
+export async function runSync(): Promise<void> {
+  await requireUser();
+  await syncAll();
+  revalidatePath("/", "layout");
+}
+
+// --- renewals -------------------------------------------------------------
+
+/** Mark a notice milestone as sent (or undo it). */
+export async function toggleRenewalStep(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const id = String(formData.get("id") ?? "");
+
+  const step = await db.renewalStep.findUnique({ where: { id }, select: { status: true } });
+  if (!step) return;
+
+  const done = step.status !== "done";
+  await db.renewalStep.update({
+    where: { id },
+    data: {
+      status: done ? "done" : "pending",
+      completedAt: done ? new Date() : null,
+      completedById: done ? user.id : null,
+    },
+  });
+
+  revalidatePath(String(formData.get("returnTo") ?? "/renewals"));
+}
+
+/**
+ * Skip a milestone deliberately — e.g. the tenant already signed, so the
+ * remaining notices are moot. Distinct from "done" so the board doesn't claim
+ * a notice went out when it didn't.
+ */
+export async function skipRenewalStep(formData: FormData): Promise<void> {
+  await requireUser();
+  const id = String(formData.get("id") ?? "");
+
+  const step = await db.renewalStep.findUnique({ where: { id }, select: { status: true } });
+  if (!step) return;
+
+  await db.renewalStep.update({
+    where: { id },
+    data: {
+      status: step.status === "skipped" ? "pending" : "skipped",
+      completedAt: null,
+      completedById: null,
+    },
+  });
+
+  revalidatePath(String(formData.get("returnTo") ?? "/renewals"));
+}
+
+/** Record the intended new rent and the renewal decision. */
+export async function saveRenewalPlan(formData: FormData): Promise<void> {
+  await requireUser();
+  const id = String(formData.get("id") ?? "");
+
+  const rentRaw = String(formData.get("proposedRent") ?? "").replace(/[$,\s]/g, "");
+  const parsed = Number(rentRaw);
+  const decision = String(formData.get("decision") ?? "").trim();
+
+  await db.renewal.update({
+    where: { id },
+    data: {
+      proposedRent: rentRaw === "" || !Number.isFinite(parsed) ? null : parsed,
+      decision: decision === "" ? null : decision,
+      notes: optional(formData.get("notes")),
+    },
+  });
+
+  revalidatePath(String(formData.get("returnTo") ?? "/renewals"));
+}
+
+// --- email ----------------------------------------------------------------
+
+/** Sends the digest to the signed-in user right now, ignoring the daily guard. */
+export async function sendTestDigest(): Promise<void> {
+  const user = await requireUser();
+  await sendDigests({ force: true, onlyUserId: user.id, kind: "test" });
+  revalidatePath("/settings");
+}
+
+/** Turn the daily digest on or off for the signed-in user. */
+export async function toggleDigest(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const enabled = formData.get("enabled") === "true";
+  await db.user.update({ where: { id: user.id }, data: { digestEnabled: enabled } });
+  revalidatePath("/settings");
+}
+
+/** Rebuild milestones from current lease dates. Safe to run any time. */
+export async function rebuildRenewals(): Promise<void> {
+  await requireUser();
+  await generateRenewals();
+  revalidatePath("/renewals");
+  revalidatePath("/");
+}
+
+// --- helpers --------------------------------------------------------------
+
+function optional(value: FormDataEntryValue | null): string | null {
+  const text = String(value ?? "").trim();
+  return text === "" ? null : text;
+}

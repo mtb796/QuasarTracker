@@ -1,0 +1,313 @@
+// Quasar — data model
+//
+// Two kinds of data live here:
+//
+//   1. MIRRORED FROM APPFOLIO (Property, Unit, Tenant, Owner)
+//      AppFolio's Reporting API is read-only, so these tables are a local cache
+//      refreshed by a sync run. Never edit them by hand — a sync will overwrite.
+//      Each row keeps `raw` (the untouched AppFolio JSON) so we can surface
+//      fields we haven't mapped yet without re-syncing.
+//
+//   2. OURS (User, Note, Handoff, plus the `workStatus` overlays)
+//      This is the communication layer AppFolio doesn't give us. It survives
+//      every sync because sync only touches mirrored columns.
+//
+// Postgres, in every environment.
+//
+// This deploys to Vercel, where the filesystem is ephemeral and read-only, so
+// SQLite is not an option — a file database would vanish between requests and
+// couldn't be shared between two people anyway. Local development uses Postgres
+// too, so what you test is what ships.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Ours
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  /// Receives the daily renewal digest. Off means this person gets no email.
+  digestEnabled Boolean @default(true)
+
+  notes          Note[]
+  createdTasks   Handoff[]     @relation("HandoffCreator")
+  assignedTasks  Handoff[]     @relation("HandoffAssignee")
+  renewalSteps   RenewalStep[]
+}
+
+/// A shared update. Attaches to whatever it is about; all four targets are
+/// optional so a note can be general ("office closed Friday") or specific.
+model Note {
+  id       String @id @default(cuid())
+  body     String
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId     String?
+  unit       Unit?     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tenantId   String?
+  tenant     Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ownerId    String?
+  owner      Owner?    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([propertyId, createdAt])
+  @@index([unitId, createdAt])
+  @@index([createdAt])
+}
+
+/// A task one of us hands to the other.
+/// status: "open" | "done"
+model Handoff {
+  id     String  @id @default(cuid())
+  title  String
+  detail String?
+
+  creatorId  String
+  creator    User    @relation("HandoffCreator", fields: [creatorId], references: [id])
+  assigneeId String?
+  assignee   User?   @relation("HandoffAssignee", fields: [assigneeId], references: [id])
+
+  status  String    @default("open")
+  dueDate DateTime?
+
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId     String?
+  unit       Unit?     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([status, dueDate])
+  @@index([assigneeId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Mirrored from AppFolio
+// ---------------------------------------------------------------------------
+
+model Property {
+  id         String  @id @default(cuid())
+  appfolioId String? @unique
+  name       String
+  address1   String?
+  city       String?
+  state      String?
+  zip        String?
+  propertyType String?
+
+  /// Ours, not AppFolio's — free-text workflow marker we control.
+  workStatus String?
+
+  ownerId String?
+  owner   Owner?  @relation(fields: [ownerId], references: [id])
+
+  units    Unit[]
+  tenants  Tenant[]
+  notes    Note[]
+  handoffs Handoff[]
+
+  /// Untouched AppFolio row, JSON-encoded.
+  raw       String?
+  syncedAt  DateTime?
+  updatedAt DateTime  @updatedAt
+
+  @@index([name])
+}
+
+model Unit {
+  id         String  @id @default(cuid())
+  appfolioId String? @unique
+  name       String
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  bedrooms   Float?
+  bathrooms  Float?
+  squareFeet Int?
+  marketRent Float?
+
+  /// Normalized from AppFolio: "occupied" | "vacant" | "notice" | "unknown"
+  occupancy String @default("unknown")
+
+  /// Ours — e.g. "Turn in progress", "Owner approval pending".
+  workStatus String?
+
+  tenants  Tenant[]
+  notes    Note[]
+  handoffs Handoff[]
+
+  raw       String?
+  syncedAt  DateTime?
+  updatedAt DateTime  @updatedAt
+
+  @@index([propertyId])
+  @@index([occupancy])
+}
+
+model Tenant {
+  id         String  @id @default(cuid())
+  appfolioId String? @unique
+  name       String
+  email      String?
+  phone      String?
+
+  unitId String?
+  unit   Unit?   @relation(fields: [unitId], references: [id])
+
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id])
+
+  leaseStart DateTime?
+  leaseEnd   DateTime?
+  rent       Float?
+
+  /// "current" | "past" | "future" | "unknown"
+  status String @default("unknown")
+
+  notes    Note[]
+  renewals Renewal[]
+
+  raw       String?
+  syncedAt  DateTime?
+  updatedAt DateTime  @updatedAt
+
+  @@index([name])
+  @@index([status])
+  @@index([leaseEnd])
+}
+
+// ---------------------------------------------------------------------------
+// Renewals — the reason this app exists
+// ---------------------------------------------------------------------------
+
+/// One lease term coming up for renewal.
+///
+/// Keyed by (tenant, leaseEnd) rather than tenant alone: when a lease is
+/// renewed, AppFolio reports a new end date and that becomes a *new* Renewal,
+/// leaving the completed one intact as history.
+///
+/// This is entirely our data — AppFolio has no idea we track any of it — so
+/// a sync never touches it.
+model Renewal {
+  id       String   @id @default(cuid())
+  tenantId String
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  leaseEnd DateTime
+
+  /// What we intend to charge. Recorded here so the decision survives the
+  /// conversation that produced it.
+  proposedRent Float?
+  /// "increase" | "flat" | "non_renew" | null while undecided
+  decision String?
+  notes    String?
+
+  steps RenewalStep[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, leaseEnd])
+  @@index([leaseEnd])
+}
+
+/// One notice milestone on a renewal: 150, 120, 100 or 90 days out.
+///
+/// `dueOn` is stored rather than computed on read so that a lease-end change
+/// produces a new Renewal with fresh dates instead of silently moving history,
+/// and so the board can be sorted and filtered in the database.
+model RenewalStep {
+  id        String  @id @default(cuid())
+  renewalId String
+  renewal   Renewal @relation(fields: [renewalId], references: [id], onDelete: Cascade)
+
+  /// Days before lease end: 150, 120, 100 or 90.
+  milestone Int
+  dueOn     DateTime
+
+  /// "pending" | "done" | "skipped"
+  status        String    @default("pending")
+  completedAt   DateTime?
+  completedById String?
+  completedBy   User?     @relation(fields: [completedById], references: [id])
+  note          String?
+
+  @@unique([renewalId, milestone])
+  @@index([status, dueOn])
+}
+
+model Owner {
+  id         String  @id @default(cuid())
+  appfolioId String? @unique
+  name       String
+  email      String?
+  phone      String?
+  company    String?
+
+  properties Property[]
+  notes      Note[]
+
+  raw       String?
+  syncedAt  DateTime?
+  updatedAt DateTime  @updatedAt
+
+  @@index([name])
+}
+
+/// One row per email we attempt to send.
+///
+/// Two jobs: a record of what went out (so "did the digest actually send?" has
+/// an answer), and the once-per-day guard — a cron that fires twice must not
+/// email twice, so a send is skipped when a successful one already exists for
+/// that recipient and day.
+model EmailLog {
+  id      String @id @default(cuid())
+  to      String
+  subject String
+  /// "digest" | "test"
+  kind    String
+  /// "sent" | "error" | "skipped"
+  status  String
+  error   String?
+  /// Local calendar day, as YYYY-MM-DD, for the once-per-day guard.
+  day     String
+  sentAt  DateTime @default(now())
+
+  @@index([to, kind, day])
+  @@index([sentAt])
+}
+
+/// One row per sync attempt, so we can show "last synced" and debug failures.
+model SyncRun {
+  id         String    @id @default(cuid())
+  report     String
+  status     String    @default("running") // "running" | "ok" | "error"
+  rowsFetched Int      @default(0)
+  rowsWritten Int      @default(0)
+  error      String?
+  /// Column names AppFolio actually returned, JSON-encoded. Invaluable when a
+  /// report's shape differs from what the mapper expects.
+  columns    String?
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@index([startedAt])
+}

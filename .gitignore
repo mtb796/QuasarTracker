@@ -1,0 +1,16 @@
+node_modules
+.next
+out
+build
+
+# Local database + secrets — never commit these
+*.db
+*.db-journal
+.env
+.env.local
+.env*.local
+
+.DS_Store
+*.pem
+next-env.d.ts
+tsconfig.tsbuildinfo
