@@ -21,6 +21,13 @@ export default async function LoginPage() {
           </div>
 
           <LoginForm />
+
+          <p className="mt-4 text-center text-xs text-muted">
+            First time on this deployment?{" "}
+            <a className="text-accent hover:underline" href="/setup">
+              Run setup
+            </a>
+          </p>
         </div>
       </div>
     </main>

@@ -342,17 +342,13 @@ Then the AppFolio credentials (`APPFOLIO_DATABASE`, `APPFOLIO_CLIENT_ID`,
 `APPFOLIO_CLIENT_SECRET`) and, for email, `RESEND_API_KEY` and `EMAIL_FROM`.
 The app runs without those — it just can't sync or send until they're set.
 
-**3. Deploy**, then create the tables and your accounts against the production
-database. Run these locally with `DATABASE_URL` pointed at production:
+**3. Deploy, then open `/setup`** on your deployment. It creates the tables and
+your first account in the browser — no terminal, no local clone. It only works
+while the database has zero accounts, and refuses forever after that, so it
+can't be used to add people later.
 
-```bash
-npx prisma db push
-npx tsx scripts/user.ts add "Malik Banks" you@example.com "a-good-password"
-npx tsx scripts/user.ts add "Coworker" them@example.com "their-password"
-```
-
-There is no sign-up page by design — accounts are created deliberately, so
-nobody who finds the URL can make themselves one.
+There is no sign-up page by design: accounts are created deliberately, so nobody
+who finds the URL can make themselves one.
 
 **4. Sync.** Sign in, go to Settings, and press **Sync from AppFolio**. Then
 check Tenants shows real lease dates before trusting Renewals.

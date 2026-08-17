@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, resolveDatabaseUrl } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +20,12 @@ export const dynamic = "force-dynamic";
 type Stage = { ok: boolean; detail: string };
 
 export async function GET(): Promise<NextResponse> {
+  // Use the same resolution the app does, so this can't report "not set" while
+  // the app is happily connected via one of Vercel's POSTGRES_* names.
+  const { source } = resolveDatabaseUrl();
+
   const required = {
-    DATABASE_URL: Boolean(process.env.DATABASE_URL?.trim()),
+    databaseUrl: source ? `set (from ${source})` : "missing",
     SESSION_SECRET:
       Boolean(process.env.SESSION_SECRET?.trim()) &&
       process.env.SESSION_SECRET !== "change-me-to-a-long-random-string",
@@ -39,14 +43,17 @@ export async function GET(): Promise<NextResponse> {
   let nextStep = "Everything looks set up. Sign in at /login.";
   let ok = true;
 
-  // 1. Is the connection string even present?
-  if (!required.DATABASE_URL) {
-    stages.connection = { ok: false, detail: "DATABASE_URL is not set." };
+  // 1. Is a connection string present under any of the accepted names?
+  if (!source) {
+    stages.connection = {
+      ok: false,
+      detail: "No connection string found in DATABASE_URL, POSTGRES_PRISMA_URL or POSTGRES_URL.",
+    };
     return NextResponse.json(
       {
         ok: false,
         nextStep:
-          "Set DATABASE_URL in Vercel → Settings → Environment Variables to your Postgres connection string, then redeploy.",
+          "Add a Postgres database and put its connection string in Vercel → Settings → Environment Variables as DATABASE_URL, then redeploy.",
         env: { required, optional },
         stages,
       },
@@ -81,8 +88,7 @@ export async function GET(): Promise<NextResponse> {
     if (found === 0) {
       ok = false;
       stages.tables = { ok: false, detail: "No application tables exist yet." };
-      nextStep =
-        "Create the tables. Locally, with DATABASE_URL pointed at this database, run: npx prisma db push";
+      nextStep = "Open /setup in your browser — it creates the tables and your first account.";
       return NextResponse.json(
         { ok, nextStep, env: { required, optional }, stages },
         { status: 503 },
@@ -110,7 +116,7 @@ export async function GET(): Promise<NextResponse> {
     if (users === 0) {
       ok = false;
       nextStep =
-        'No accounts exist yet, and there is no sign-up page by design. Create one locally with DATABASE_URL pointed here: npx tsx scripts/user.ts add "Your Name" you@example.com "a-good-password"';
+        "No accounts exist yet. Open /setup in your browser to create the first one.";
     }
   } catch (error) {
     ok = false;
