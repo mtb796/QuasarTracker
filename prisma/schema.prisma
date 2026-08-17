@@ -21,6 +21,10 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Vercel's Node runtime needs the RHEL engine. Without it the client builds
+  // fine and then fails at runtime with "could not locate the Query Engine",
+  // which is a confusing way to find out.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {

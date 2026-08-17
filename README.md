@@ -360,6 +360,25 @@ check Tenants shows real lease dates before trusting Renewals.
 The daily digest cron in `vercel.json` starts running on its own once
 `CRON_SECRET` is set.
 
+### If something fails after deploying
+
+Open **`/api/health`**. It probes each stage in order — connection string
+present, database reachable, tables created, accounts exist — and tells you the
+exact command to run next. It reports only booleans, counts and next steps,
+never a connection string or secret, so it is safe to leave reachable.
+
+The usual causes, in the order they bite:
+
+| Symptom | Cause | Fix |
+| ------- | ----- | --- |
+| Sign-in shows "Can't reach the database" | `DATABASE_URL` missing or wrong | Set it in Vercel, redeploy |
+| `/api/health` says no tables | Schema never applied | `npx prisma db push` with `DATABASE_URL` pointed at production |
+| `/api/health` says 0 accounts | No user created yet | `npx tsx scripts/user.ts add …` |
+| Sign-in mentions `SESSION_SECRET` | Not set | Add it, redeploy |
+
+Sign-in failures no longer render a blank server-error page — the reason is
+shown on the form itself.
+
 ### Notes
 
 - `npm run build` runs `prisma generate` first, so the client is always built

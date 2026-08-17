@@ -21,13 +21,30 @@ export async function login(_prev: ActionState, formData: FormData): Promise<Act
 
   if (!email || !password) return { error: "Enter your email and password." };
 
-  const user = await db.user.findUnique({ where: { email } });
+  // A misconfigured deployment fails right here, and an unhandled throw renders
+  // a blank "a server error occurred" page that says nothing useful. Catch it
+  // and point at the diagnostic instead.
+  let user: Awaited<ReturnType<typeof db.user.findUnique>>;
+  try {
+    user = await db.user.findUnique({ where: { email } });
+  } catch {
+    return {
+      error: "Can't reach the database. Open /api/health for the cause and the fix.",
+    };
+  }
+
   // Same message either way, so this can't be used to discover valid emails.
   if (!user || !(await verifyPassword(password, user.passwordHash))) {
     return { error: "Email or password is incorrect." };
   }
 
-  await createSession(user.id);
+  try {
+    await createSession(user.id);
+  } catch {
+    return {
+      error: "SESSION_SECRET is missing, so the login cookie can't be signed. See /api/health.",
+    };
+  }
   redirect("/");
 }
 
