@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { createSession, destroySession, requireUser, verifyPassword } from "@/lib/auth";
+import {
+  createSession,
+  destroySession,
+  hashPassword,
+  requireUser,
+  verifyPassword,
+} from "@/lib/auth";
 import { syncAll } from "@/lib/sync";
 import { generateRenewals } from "@/lib/renewals";
 import { sendDigests } from "@/lib/send-digest";
@@ -262,4 +268,111 @@ export async function rebuildRenewals(): Promise<void> {
 function optional(value: FormDataEntryValue | null): string | null {
   const text = String(value ?? "").trim();
   return text === "" ? null : text;
+}
+
+// --- people ---------------------------------------------------------------
+
+/**
+ * Adds the other person's account.
+ *
+ * Any signed-in user can do this. With a team of two that's the right trade:
+ * an invite-and-accept flow would be more machinery to build and secure than
+ * the risk warrants, and /setup already refuses once one account exists, so
+ * this is the only route in — you have to be signed in to use it.
+ */
+export async function addTeammate(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireUser();
+
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+
+  if (!name || !email) return { error: "Enter a name and email." };
+  if (!email.includes("@")) return { error: "That doesn't look like an email address." };
+  if (password.length < 8) return { error: "Password must be at least 8 characters." };
+
+  const taken = await db.user.findUnique({ where: { email }, select: { id: true } });
+  if (taken) return { error: `${email} already has an account.` };
+
+  await db.user.create({ data: { name, email, passwordHash: await hashPassword(password) } });
+  revalidatePath("/settings");
+  return { ok: `Added ${name}. They can sign in at /login with the password you set.` };
+}
+
+/** Changes your own password. Requires the current one, so a left-open tab can't. */
+export async function changeMyPassword(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireUser();
+
+  const current = String(formData.get("currentPassword") ?? "");
+  const next = String(formData.get("newPassword") ?? "");
+
+  if (next.length < 8) return { error: "New password must be at least 8 characters." };
+
+  const record = await db.user.findUnique({
+    where: { id: user.id },
+    select: { passwordHash: true },
+  });
+  if (!record || !(await verifyPassword(current, record.passwordHash))) {
+    return { error: "Current password is incorrect." };
+  }
+
+  await db.user.update({
+    where: { id: user.id },
+    data: { passwordHash: await hashPassword(next) },
+  });
+  return { ok: "Password changed." };
+}
+
+/** Resets someone else's password, for when they're locked out. */
+export async function resetTeammatePassword(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const me = await requireUser();
+
+  const id = String(formData.get("id") ?? "");
+  const password = String(formData.get("password") ?? "");
+  if (password.length < 8) return { error: "Password must be at least 8 characters." };
+  if (id === me.id) return { error: "Use the change-password form for your own account." };
+
+  const target = await db.user.findUnique({ where: { id }, select: { name: true } });
+  if (!target) return { error: "That account no longer exists." };
+
+  await db.user.update({ where: { id }, data: { passwordHash: await hashPassword(password) } });
+  revalidatePath("/settings");
+  return { ok: `Set a new password for ${target.name}.` };
+}
+
+/**
+ * Removes an account.
+ *
+ * Refuses to remove you, and refuses the last account, either of which would
+ * lock everyone out — /setup won't reopen once an account has ever existed.
+ * Notes and tasks reference their author, so an account that has written
+ * anything can't be deleted without taking that history with it; changing the
+ * password is the right move there instead.
+ */
+export async function removeTeammate(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const me = await requireUser();
+  const id = String(formData.get("id") ?? "");
+
+  if (id === me.id) return { error: "You can't remove your own account." };
+  if ((await db.user.count()) <= 1) return { error: "That's the only account — removing it would lock everyone out." };
+
+  const target = await db.user.findUnique({ where: { id }, select: { name: true } });
+  if (!target) return { error: "That account no longer exists." };
+
+  try {
+    await db.user.delete({ where: { id } });
+  } catch {
+    return {
+      error: `${target.name} has written notes or tasks, so the account can't be deleted without losing that history. Change their password instead.`,
+    };
+  }
+
+  revalidatePath("/settings");
+  return { ok: `Removed ${target.name}.` };
 }

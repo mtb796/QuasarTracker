@@ -5,6 +5,7 @@ import { fromAddress, transport } from "@/lib/email";
 import { toggleDigest } from "@/app/actions";
 import { SyncButton } from "@/components/SyncButton";
 import { TestDigestButton } from "@/components/TestDigestButton";
+import { PeopleManager } from "@/components/PeopleManager";
 import { PageHeader } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -224,17 +225,11 @@ export default async function SettingsPage() {
 
       <section className="card p-4">
         <h2 className="mb-1 text-sm font-semibold">People</h2>
-        <p className="mb-3 text-sm text-muted">
-          Accounts are created from the command line — see the README. Keeping it to the two of you
-          means no invite flow to build or secure.
+        <p className="mb-4 text-sm text-muted">
+          Everyone here can sign in and sees the same data. There&apos;s no public sign-up, so an
+          account only exists because someone on this page created it.
         </p>
-        <ul className="space-y-1 text-sm">
-          {users.map((user) => (
-            <li key={user.id}>
-              {user.name} <span className="text-muted">· {user.email}</span>
-            </li>
-          ))}
-        </ul>
+        <PeopleManager people={users} meId={user.id} />
       </section>
     </div>
   );

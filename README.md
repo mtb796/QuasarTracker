@@ -247,13 +247,29 @@ server after changing `.env`.
 
 ## Accounts
 
-There's no invite flow — with two people, the command line is simpler and safer:
+Two ways in, and no public sign-up — an account exists only because someone
+created it.
+
+**The first account** comes from `/setup` on the deployment. It creates the
+tables too, and closes permanently once any account exists.
+
+**Everyone after that** is added from **Settings → People** by someone already
+signed in. You set their password and pass it to them; there's no invite email
+to configure. They can change it themselves under the same section.
+
+Also there: reset someone's password if they're locked out, and remove an
+account. Removal refuses on your own account and on the last remaining one —
+either would lock everyone out, and `/setup` does not reopen. An account that
+has written notes or tasks can't be deleted without taking that history with
+it, so change the password instead.
+
+If you ever need it from a terminal (no browser access, or the last account is
+locked out), the CLI still works with `DATABASE_URL` pointed at the database:
 
 ```bash
-npx tsx scripts/user.ts add "Malik Banks" malik@example.com "a-good-password"
-npx tsx scripts/user.ts password malik@example.com "a-new-password"
+npx tsx scripts/user.ts add "Name" email@example.com "a-good-password"
+npx tsx scripts/user.ts password email@example.com "a-new-password"
 npx tsx scripts/user.ts list
-npx tsx scripts/user.ts remove old@example.com
 ```
 
 Passwords are hashed with scrypt. Sessions are signed, HTTP-only cookies that
