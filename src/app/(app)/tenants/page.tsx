@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { SearchBar } from "@/components/SearchBar";
-import { Empty, PageHeader, TenantStatusPill, formatDate, formatMoney } from "@/components/ui";
+import { Empty, PageHeader, SubsidyPill, TenantStatusPill, formatDate, formatMoney } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -96,7 +96,10 @@ export default async function TenantsPage({
                   id={tenant.id}
                   className="border-b border-line last:border-0 target:bg-amber-50 hover:bg-gray-50"
                 >
-                  <td className="td font-medium">{tenant.name}</td>
+                  <td className="td font-medium">
+                    {tenant.name}
+                    <div className="mt-0.5"><SubsidyPill value={tenant.subsidized} /></div>
+                  </td>
                   <td className="td">
                     <TenantStatusPill value={tenant.status} />
                   </td>

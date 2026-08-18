@@ -2,7 +2,7 @@ import Link from "next/link";
 import { skipRenewalStep, toggleRenewalStep } from "@/app/actions";
 import type { RenewalRow, RenewalStepView } from "@/lib/renewals";
 import { HARD_DEADLINE, type StepState } from "@/lib/renewal-rules";
-import { formatDate, formatMoney } from "./ui";
+import { SubsidyPill, formatDate, formatMoney, unitLabel } from "./ui";
 
 const STATE_CHIP: Record<StepState, string> = {
   expired: "bg-accent-strong text-white",
@@ -97,12 +97,14 @@ export function ActionQueue({
             <div className="text-sm font-medium">
               {row.unitId ? (
                 <Link className="text-accent hover:underline" href={`/units/${row.unitId}`}>
-                  {row.propertyName} · Unit {row.unitName}
+                  {row.propertyName}
+                {unitLabel(row.unitName) ? ` · Unit ${unitLabel(row.unitName)}` : ""}
                 </Link>
               ) : (
                 <span>{row.propertyName ?? "Unassigned unit"}</span>
               )}
               <span className="text-muted"> — {row.tenantName}</span>
+              <span className="ml-2 align-middle"><SubsidyPill value={row.subsidized} /></span>
             </div>
             <div className="text-xs text-muted">
               Lease ends {formatDate(row.leaseEnd)} ·{" "}

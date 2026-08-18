@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { RenewalRow } from "@/lib/renewals";
 import { HARD_DEADLINE } from "@/lib/renewal-rules";
-import { formatDate } from "./ui";
+import { formatDate, unitLabel } from "./ui";
 
 /**
  * The dashboard banner. Renewals are the reason this app exists, so anything
@@ -62,7 +62,7 @@ export function RenewalAlert({
               >
                 <span className="font-medium">
                   {row.propertyName}
-                  {row.unitName ? ` · Unit ${row.unitName}` : ""}
+                  {unitLabel(row.unitName) ? ` · Unit ${unitLabel(row.unitName)}` : ""}
                 </span>{" "}
                 <span className="text-muted">
                   — {row.tenantName}, ends {formatDate(row.leaseEnd)} (

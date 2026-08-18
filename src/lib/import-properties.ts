@@ -66,6 +66,27 @@ function money(row: SheetRow, header?: string): number | null {
  * formatted as a date. The serial case is the one that silently produces
  * nonsense, so it's handled explicitly.
  */
+/**
+ * A grouping row, not a record.
+ *
+ * Real renewal sheets are broken up by month, with the month written into the
+ * property column ("2026-04-01"). Imported literally, each one becomes a
+ * property named after a date.
+ */
+export function isSectionRow(propertyName: string): boolean {
+  // A real address always contains a word; a month divider is bare date text.
+  return parseDate(propertyName) !== null && !/[a-z]{3}/i.test(propertyName);
+}
+
+/** yes / no / true / false / y / n / sub — anything a person types in a column. */
+export function parseBoolean(raw: string | null): boolean | null {
+  if (raw === null) return null;
+  const value = raw.trim().toLowerCase();
+  if (["yes", "y", "true", "1", "sub", "subsidized", "subsidised", "hap"].includes(value)) return true;
+  if (["no", "n", "false", "0", "none", "market"].includes(value)) return false;
+  return null;
+}
+
 export function parseDate(raw: string | null): Date | null {
   if (!raw) return null;
 
@@ -109,6 +130,8 @@ export function buildPreview(headers: string[], rows: SheetRow[], mapping: Mappi
       if (issues.length < 25) issues.push({ row: index + 2, problem: "No property name — row skipped." });
       return;
     }
+    // Month dividers are expected in these sheets — skipped, not flagged.
+    if (isSectionRow(property)) return;
     usable += 1;
     if (leaseEnd) leaseDates += 1;
     else if (leaseEndRaw && issues.length < 25) {
@@ -138,17 +161,19 @@ export type ImportResult = {
   owners: number;
   renewals: number;
   skipped: number;
+  plansApplied: number;
 };
 
 export async function importRows(rows: SheetRow[], mapping: Mapping): Promise<ImportResult> {
-  const result: ImportResult = { properties: 0, units: 0, tenants: 0, owners: 0, renewals: 0, skipped: 0 };
+  const result: ImportResult = { properties: 0, units: 0, tenants: 0, owners: 0, renewals: 0, skipped: 0, plansApplied: 0 };
 
   const propertyCache = new Map<string, string>();
   const ownerCache = new Map<string, string>();
+  const plans: { tenantId: string; leaseEnd: Date; proposedRent: number | null; notes: string | null }[] = [];
 
   for (const row of rows) {
     const propertyName = text(row, mapping.property);
-    if (!propertyName) { result.skipped += 1; continue; }
+    if (!propertyName || isSectionRow(propertyName)) { result.skipped += 1; continue; }
 
     // Owner ------------------------------------------------------------
     let ownerId: string | null = null;
@@ -204,9 +229,11 @@ export async function importRows(rows: SheetRow[], mapping: Mapping): Promise<Im
     // A sheet with no unit column is one row per property; give it a single
     // unit so lease dates and renewals still have somewhere to live.
     const unitName = text(row, mapping.unit) ?? "—";
+    const squareFeet = money(row, mapping.squareFeet);
     const unitData = {
       bedrooms: money(row, mapping.bedrooms),
       bathrooms: money(row, mapping.bathrooms),
+      squareFeet: squareFeet === null ? null : Math.round(squareFeet),
       marketRent: money(row, mapping.marketRent),
       raw: JSON.stringify(row),
     };
@@ -241,6 +268,7 @@ export async function importRows(rows: SheetRow[], mapping: Mapping): Promise<Im
         leaseStart: parseDate(text(row, mapping.leaseStart)),
         leaseEnd,
         rent: money(row, mapping.rent),
+        subsidized: parseBoolean(text(row, mapping.subsidized)),
         status: "current",
         raw: JSON.stringify(row),
       };
@@ -249,11 +277,30 @@ export async function importRows(rows: SheetRow[], mapping: Mapping): Promise<Im
         where: { unitId, name: tenantName },
         select: { id: true },
       });
+      let tenantId: string;
       if (existingTenant) {
         await db.tenant.update({ where: { id: existingTenant.id }, data: tenantData });
+        tenantId = existingTenant.id;
       } else {
-        await db.tenant.create({ data: { name: tenantName, ...tenantData } });
+        const created = await db.tenant.create({
+          data: { name: tenantName, ...tenantData },
+          select: { id: true },
+        });
+        tenantId = created.id;
         result.tenants += 1;
+      }
+
+      // The sheet already carries the decision work — suggested rent, status
+      // notes. Applied after milestones exist, since it lives on the Renewal.
+      const proposed = money(row, mapping.proposedRent);
+      const noteParts = [text(row, mapping.status), text(row, mapping.notes)].filter(Boolean);
+      if (leaseEnd && (proposed !== null || noteParts.length > 0)) {
+        plans.push({
+          tenantId,
+          leaseEnd,
+          proposedRent: proposed,
+          notes: noteParts.length > 0 ? noteParts.join(" · ") : null,
+        });
       }
 
       await db.unit.update({ where: { id: unitId }, data: { occupancy: "occupied" } });
@@ -262,5 +309,25 @@ export async function importRows(rows: SheetRow[], mapping: Mapping): Promise<Im
 
   const { renewalsCreated } = await generateRenewals();
   result.renewals = renewalsCreated;
+
+  for (const plan of plans) {
+    // startOfDay, to match how generateRenewals keys the Renewal.
+    const day = new Date(plan.leaseEnd);
+    day.setHours(0, 0, 0, 0);
+    try {
+      await db.renewal.update({
+        where: { tenantId_leaseEnd: { tenantId: plan.tenantId, leaseEnd: day } },
+        data: {
+          ...(plan.proposedRent !== null ? { proposedRent: plan.proposedRent } : {}),
+          ...(plan.notes ? { notes: plan.notes } : {}),
+          ...(plan.proposedRent !== null ? { decision: "increase" } : {}),
+        },
+      });
+      result.plansApplied += 1;
+    } catch {
+      // Outside the renewal horizon, so no Renewal row exists. Not an error.
+    }
+  }
+
   return result;
 }

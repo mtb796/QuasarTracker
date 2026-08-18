@@ -53,7 +53,12 @@ npm run test:renewals    # boundary, DST and hard-line cases
 ## Import from a spreadsheet
 
 **Import** in the nav loads properties, units, tenants and lease dates from an
-`.xlsx` or `.csv` — no AppFolio API needed. One row per unit.
+`.xlsx` or `.csv` — no AppFolio API needed. One row per unit. There is no sample
+data in this app; Import is how real data gets in.
+
+**Pick the sheet.** A workbook usually has working tabs alongside the one that
+matters, and it is rarely the first. After the first read a sheet selector
+appears; changing it re-reads and re-detects the columns.
 
 Column names don't matter. They're matched automatically (`Lease Expiration`,
 `Renewal Date` and `lease_end` all find the same field), and the mapping is
@@ -66,11 +71,19 @@ Two columns carry weight:
 - **Property** — required. Rows without one are skipped and counted.
 - **Lease end / renewal date** — this is what creates the 150/120/100/90
   milestones. A unit imports fine without it but is never tracked for renewal,
-  so the preview reports how many readable dates it found and flags any it
-  couldn't parse.
+  so the preview reports how many readable dates it found, and the import is
+  **refused** if no lease-end column is selected unless you tick the box saying
+  that's deliberate. It also refuses if the mapping names columns that aren't in
+  the chosen sheet, which is what happens after switching sheets.
 
-Everything else — unit, tenant, phone, email, rent, market rent, owner, address,
-beds, baths — is used when present and ignored when absent. Unmapped columns are
+Also read when present: unit, tenant, phone, email, current rent, **suggested /
+new rent**, **subsidy flag**, owner, address, square feet, beds, baths, status
+and notes. Suggested rent and status notes land on the renewal itself, so work
+already done in the spreadsheet carries across. Subsidised tenants get a badge
+on the renewal board, since those increases are capped differently.
+
+Month divider rows — where the property column holds a bare date — are detected
+and skipped rather than imported as properties named after a date. Unmapped columns are
 kept on the record and visible under "All AppFolio fields" on the unit page,
 so nothing in the sheet is lost.
 

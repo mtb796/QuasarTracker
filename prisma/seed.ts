@@ -1,16 +1,16 @@
 /**
- * Seeds two accounts and the demo portfolio, for local development.
+ * Creates two local development accounts. No sample properties — real data
+ * comes in through the Import page.
  *
- * On a deployed instance you don't need this — open /setup in the browser,
- * which creates the tables and your first account with the same demo data.
+ * On a deployed instance you don't need this at all: /setup creates the tables
+ * and your first account in the browser.
  *
- *   npx tsx prisma/seed.ts            # accounts + demo portfolio
- *   npx tsx prisma/seed.ts --clear    # remove demo data, keep accounts
+ *   npx tsx prisma/seed.ts            # accounts only
+ *   npx tsx prisma/seed.ts --clear    # wipe imported data, keep accounts
  */
 import { randomBytes, scrypt as scryptCb } from "node:crypto";
 import { promisify } from "node:util";
 import { db } from "../src/lib/db";
-import { seedDemoPortfolio } from "../src/lib/demo-data";
 
 const scrypt = promisify(scryptCb) as (p: string, s: string, l: number) => Promise<Buffer>;
 
@@ -29,7 +29,7 @@ async function clearDemo(): Promise<void> {
   await db.unit.deleteMany({ where: { appfolioId: null } });
   await db.property.deleteMany({ where: { appfolioId: null } });
   await db.owner.deleteMany({ where: { appfolioId: null } });
-  console.log("Demo data cleared. Accounts kept.");
+  console.log("Property data cleared. Accounts kept.");
 }
 
 async function main(): Promise<void> {
@@ -40,7 +40,7 @@ async function main(): Promise<void> {
 
   const password = process.env.SEED_PASSWORD || "changeme123";
 
-  const [you, coworker] = await Promise.all([
+  await Promise.all([
     db.user.upsert({
       where: { email: "you@example.com" },
       update: {},
@@ -57,15 +57,7 @@ async function main(): Promise<void> {
     }),
   ]);
 
-  const result = await seedDemoPortfolio(you.id, coworker.id);
-  if (result) {
-    console.log(
-      `Seeded ${result.properties} properties, ${result.units} units, ${result.tenants} tenants.`,
-    );
-    console.log(`Renewals: ${result.renewals} leases tracked.`);
-  } else {
-    console.log("Properties already exist — skipping demo portfolio.");
-  }
+  console.log("Created accounts. Load properties via the Import page — there is no sample data.");
 
   console.log("\nAccounts:");
   console.log(`  you@example.com      / ${password}`);

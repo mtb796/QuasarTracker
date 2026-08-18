@@ -49,14 +49,9 @@ export function SetupForm({
         />
       </div>
 
-      <label className="flex items-start gap-2 text-sm">
-        <input className="mt-0.5" defaultChecked name="demo" type="checkbox" value="true" />
-        <span>
-          Add demo data — a few properties with leases spread across every renewal milestone, so
-          the app isn&apos;t empty. Safe to delete later, and a real AppFolio sync won&apos;t
-          collide with it.
-        </span>
-      </label>
+      <p className="rounded-md bg-ember-tint px-3 py-2 text-sm text-amber-900">
+        Next you&apos;ll be taken to Import, to load your properties from a spreadsheet.
+      </p>
 
       {state.error && (
         <p className="rounded-md bg-crimson-tint px-3 py-2 text-sm text-accent-strong">

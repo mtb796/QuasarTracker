@@ -53,6 +53,7 @@ export type RenewalRow = {
   daysOut: number;
   currentRent: number | null;
   marketRent: number | null;
+  subsidized: boolean | null;
   proposedRent: number | null;
   decision: string | null;
   notes: string | null;
@@ -103,6 +104,7 @@ export async function getRenewalBoard(now: Date = new Date()): Promise<RenewalRo
       daysOut,
       currentRent: renewal.tenant.rent,
       marketRent: renewal.tenant.unit?.marketRent ?? null,
+      subsidized: renewal.tenant.subsidized,
       proposedRent: renewal.proposedRent,
       decision: renewal.decision,
       notes: renewal.notes,

@@ -12,21 +12,30 @@ import ExcelJS from "exceljs";
  */
 
 export type SheetRow = Record<string, unknown>;
-export type ParsedSheet = { headers: string[]; rows: SheetRow[] };
+export type ParsedSheet = { headers: string[]; rows: SheetRow[]; sheetNames: string[]; sheetName: string };
 
-export async function parseSheet(buffer: Buffer, filename: string): Promise<ParsedSheet> {
+export async function parseSheet(
+  buffer: Buffer,
+  filename: string,
+  sheetName?: string,
+): Promise<ParsedSheet> {
   const lower = filename.toLowerCase();
   if (lower.endsWith(".csv") || lower.endsWith(".txt")) return parseCsv(buffer.toString("utf8"));
-  return parseXlsx(buffer);
+  return parseXlsx(buffer, sheetName);
 }
 
-async function parseXlsx(buffer: Buffer): Promise<ParsedSheet> {
+async function parseXlsx(buffer: Buffer, sheetName?: string): Promise<ParsedSheet> {
   const workbook = new ExcelJS.Workbook();
   // ExcelJS wants an ArrayBuffer-ish; a Node Buffer is accepted at runtime.
   await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
 
-  const sheet = workbook.worksheets[0];
-  if (!sheet) throw new Error("That workbook has no sheets.");
+  const sheetNames = workbook.worksheets.map((w) => w.name);
+  // A real workbook has working sheets, scratch tabs and the one that matters,
+  // and the one that matters is rarely first — so it is chosen, not assumed.
+  const sheet = sheetName
+    ? workbook.worksheets.find((w) => w.name === sheetName)
+    : workbook.worksheets[0];
+  if (!sheet) throw new Error(`That workbook has no sheet named "${sheetName}".`);
 
   // The header is the first row with two or more non-empty cells — real sheets
   // often open with a title row or a blank line above the actual table.
@@ -54,7 +63,7 @@ async function parseXlsx(buffer: Buffer): Promise<ParsedSheet> {
     rows.push(row);
   }
 
-  return { headers: headers.filter(Boolean), rows };
+  return { headers: headers.filter(Boolean), rows, sheetNames, sheetName: sheet.name };
 }
 
 function rowValues(row: ExcelJS.Row): string[] {
@@ -122,5 +131,5 @@ export function parseCsv(text: string): ParsedSheet {
     out.push(record);
   }
 
-  return { headers: headers.filter(Boolean), rows: out };
+  return { headers: headers.filter(Boolean), rows: out, sheetNames: [], sheetName: "" };
 }

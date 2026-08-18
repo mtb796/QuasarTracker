@@ -187,6 +187,11 @@ model Tenant {
   /// "current" | "past" | "future" | "unknown"
   status String @default("unknown")
 
+  /// On a subsidy programme (HAP / Section 8 / voucher). Subsidised increases
+  /// are capped differently from market ones, so this has to be visible on the
+  /// renewal board rather than buried in a spreadsheet column.
+  subsidized Boolean?
+
   notes    Note[]
   renewals Renewal[]
 

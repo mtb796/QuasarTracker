@@ -11,7 +11,7 @@ import { HARD_DEADLINE, MILESTONES } from "@/lib/renewal-rules";
 import { ActionQueue, StepChip } from "@/components/RenewalPipeline";
 import { RenewalPlanForm } from "@/components/RenewalPlanForm";
 import { RebuildButton } from "@/components/RebuildButton";
-import { Empty, PageHeader, formatDate, formatMoney } from "@/components/ui";
+import { Empty, PageHeader, SubsidyPill, formatDate, formatMoney, unitLabel } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -144,12 +144,14 @@ function RenewalCard({ row, returnTo }: { row: RenewalRow; returnTo: string }) {
           <div className="text-sm font-medium">
             {row.unitId ? (
               <Link className="text-accent hover:underline" href={`/units/${row.unitId}`}>
-                {row.propertyName} · Unit {row.unitName}
+                {row.propertyName}
+                {unitLabel(row.unitName) ? ` · Unit ${unitLabel(row.unitName)}` : ""}
               </Link>
             ) : (
               (row.propertyName ?? "Unassigned")
             )}
             <span className="text-muted"> — {row.tenantName}</span>
+            <span className="ml-2 align-middle"><SubsidyPill value={row.subsidized} /></span>
           </div>
           <div className="text-xs text-muted">
             Lease ends {formatDate(row.leaseEnd)} ·{" "}

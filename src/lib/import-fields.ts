@@ -16,15 +16,19 @@ export const FIELDS = {
   email: { label: "Tenant email", required: false, aliases: ["email", "tenantemail", "emailaddress", "residentemail"] },
   phone: { label: "Tenant phone", required: false, aliases: ["phone", "tenantphone", "phonenumber", "mobile", "cell", "contact"] },
   leaseStart: { label: "Lease start", required: false, aliases: ["leasestart", "leasefrom", "startdate", "movein", "moveindate", "leasebegin"] },
-  leaseEnd: { label: "Lease end / renewal date", required: true, aliases: ["leaseend", "leaseto", "enddate", "expiration", "expirationdate", "leaseexpiration", "renewaldate", "renewal", "moveout", "leaseexpires", "expires"] },
+  leaseEnd: { label: "Lease end / renewal date", required: true, aliases: ["leaseend", "leaseenddate", "leaseto", "enddate", "expiration", "expirationdate", "leaseexpiration", "renewaldate", "renewal", "moveout", "leaseexpires", "expires", "effectivedateofincrease"] },
   rent: { label: "Current rent", required: false, aliases: ["rent", "currentrent", "rentamount", "monthlyrent", "amount"] },
+  proposedRent: { label: "Suggested / new rent", required: false, aliases: ["sugrent", "suggestedrent", "newrent", "proposedrent", "increasedrent", "renewalrent"] },
+  subsidized: { label: "Subsidised?", required: false, aliases: ["sub", "subsidy", "subsidized", "subsidised", "voucher", "hap", "section8"] },
+  squareFeet: { label: "Square feet", required: false, aliases: ["sqft", "squarefeet", "squarefootage", "sf"] },
+  status: { label: "Status", required: false, aliases: ["status", "paymenthistory"] },
   marketRent: { label: "Market rent", required: false, aliases: ["marketrent", "market", "askingrent", "targetrent"] },
   owner: { label: "Owner", required: false, aliases: ["owner", "ownername", "landlord"] },
   ownerEmail: { label: "Owner email", required: false, aliases: ["owneremail"] },
   ownerPhone: { label: "Owner phone", required: false, aliases: ["ownerphone"] },
   bedrooms: { label: "Bedrooms", required: false, aliases: ["bedrooms", "beds", "br", "bed"] },
   bathrooms: { label: "Bathrooms", required: false, aliases: ["bathrooms", "baths", "ba", "bath"] },
-  notes: { label: "Notes", required: false, aliases: ["notes", "note", "comments", "remarks", "program", "subsidy", "subsidized"] },
+  notes: { label: "Notes", required: false, aliases: ["notes", "note", "comments", "remarks"] },
 } as const;
 
 export type FieldKey = keyof typeof FIELDS;

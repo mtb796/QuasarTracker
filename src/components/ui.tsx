@@ -41,6 +41,16 @@ export function TenantStatusPill({ value }: { value: string }) {
 }
 
 /**
+ * Subsidy programme marker. Increases on subsidised units are capped by the
+ * programme rather than the market, so this needs to be visible wherever a new
+ * rent gets decided.
+ */
+export function SubsidyPill({ value }: { value: boolean | null }) {
+  if (value !== true) return null;
+  return <span className="pill bg-blue-50 text-blue-800 ring-1 ring-blue-200">Subsidised</span>;
+}
+
+/**
  * Our own workflow marker. Deliberately slate rather than a semantic colour —
  * it reads as "written by us" instead of competing with AppFolio's statuses.
  */
@@ -107,6 +117,16 @@ export function Crumbs({ items }: { items: { href?: string; label: string }[] })
       ))}
     </nav>
   );
+}
+
+/**
+ * Sheets that keep the unit inside the address get a placeholder unit record.
+ * Returns null for those, so nothing renders "Unit —".
+ */
+export function unitLabel(name: string | null): string | null {
+  if (!name) return null;
+  const trimmed = name.trim();
+  return trimmed === "" || trimmed === "—" || trimmed === "-" ? null : trimmed;
 }
 
 export function formatDate(value: Date | null): string {

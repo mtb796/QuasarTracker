@@ -3,7 +3,6 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { createSession, hashPassword } from "@/lib/auth";
-import { seedDemoPortfolio } from "@/lib/demo-data";
 
 export type SetupState = { error?: string };
 
@@ -18,7 +17,6 @@ export async function runSetup(_prev: SetupState, formData: FormData): Promise<S
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
-  const wantsDemo = formData.get("demo") === "true";
   const tablesReady = formData.get("tablesReady") === "true";
   const schemaSql = String(formData.get("schemaSql") ?? "");
 
@@ -62,15 +60,6 @@ export async function runSetup(_prev: SetupState, formData: FormData): Promise<S
     return { error: `Couldn't create the account: ${short(error)}` };
   }
 
-  if (wantsDemo) {
-    // Demo data is a convenience, never a reason to fail setup.
-    try {
-      await seedDemoPortfolio(userId);
-    } catch {
-      /* ignore — the account is what matters */
-    }
-  }
-
   try {
     await createSession(userId);
   } catch {
@@ -80,7 +69,7 @@ export async function runSetup(_prev: SetupState, formData: FormData): Promise<S
     };
   }
 
-  redirect("/");
+  redirect("/import");
 }
 
 /**

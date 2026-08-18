@@ -12,7 +12,12 @@ import {
 } from "@/lib/import-properties";
 import { FIELD_ORDER, type FieldKey, type Mapping } from "@/lib/import-fields";
 
-export type PreviewState = { preview?: ImportPreview; error?: string };
+export type PreviewState = {
+  preview?: ImportPreview;
+  sheetNames?: string[];
+  sheetName?: string;
+  error?: string;
+};
 export type CommitState = { result?: ImportResult; error?: string };
 
 async function readFile(formData: FormData): Promise<{ buffer: Buffer; name: string }> {
@@ -43,11 +48,14 @@ export async function previewImport(
   await requireUser();
   try {
     const { buffer, name } = await readFile(formData);
-    const { headers, rows } = await parseSheet(buffer, name);
-    if (rows.length === 0) return { error: "That sheet has a header but no data rows." };
+    const chosen = String(formData.get("sheetName") ?? "").trim() || undefined;
+    const { headers, rows, sheetNames, sheetName } = await parseSheet(buffer, name, chosen);
+    if (rows.length === 0) {
+      return { sheetNames, sheetName, error: `Sheet "${sheetName}" has a header but no data rows.` };
+    }
 
     const mapping = mappingFrom(formData, detectColumns(headers));
-    return { preview: buildPreview(headers, rows, mapping) };
+    return { preview: buildPreview(headers, rows, mapping), sheetNames, sheetName };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Couldn't read that file." };
   }
@@ -60,10 +68,33 @@ export async function commitImport(
   await requireUser();
   try {
     const { buffer, name } = await readFile(formData);
-    const { headers, rows } = await parseSheet(buffer, name);
+    const chosen = String(formData.get("sheetName") ?? "").trim() || undefined;
+    const { headers, rows, sheetName } = await parseSheet(buffer, name, chosen);
     const mapping = mappingFrom(formData, detectColumns(headers));
 
     if (!mapping.property) return { error: "Pick which column holds the property name." };
+
+    // Renewal tracking is the whole point, and a missing lease-end column fails
+    // silently — every row imports, nothing is ever tracked. Refuse unless it
+    // was ticked as deliberate.
+    if (!mapping.leaseEnd && formData.get("allowNoDates") !== "true") {
+      return {
+        error:
+          "No lease-end column is selected, so no renewals would be tracked. Pick the column that holds the lease end date, or tick the box to import without renewal tracking.",
+      };
+    }
+
+    // Guard against previewing one sheet and importing another: a mapping built
+    // from different headers silently yields empty values — which for the
+    // lease-end column means no renewal milestones at all.
+    const missing = Object.entries(mapping)
+      .filter(([, header]) => header && !headers.includes(header))
+      .map(([field]) => field);
+    if (missing.length > 0) {
+      return {
+        error: `These columns aren't in sheet "${sheetName}": ${missing.join(", ")}. Press "Re-read" and check the mapping.`,
+      };
+    }
 
     const result = await importRows(rows, mapping);
     revalidatePath("/", "layout");
