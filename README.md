@@ -94,6 +94,42 @@ have one, so importing and syncing can coexist.
 
 ---
 
+## Board — sorting by programme
+
+**Board** puts every current tenancy on a card in one of three lanes:
+**Subsidised**, **Market rate**, and **Not sorted yet**. Drag a card to move it;
+that sets the subsidy flag the renewal board uses, so it changes how the
+increase gets priced.
+
+"Not sorted yet" is a real state, not a default. An imported sheet often leaves
+the subsidy column blank, and treating blank as "market" would quietly mis-cap
+an increase.
+
+Every card also carries plain buttons for the same moves — HTML5 drag events
+don't fire on touch screens, and this needs to work from a phone.
+
+---
+
+## Calendar
+
+**Calendar** is assembled from things that already exist, not a second place to
+keep them:
+
+- **Notice dates** — the 150/120/100/90 milestones, crimson, with the 90-day
+  ones marked urgent
+- **Lease ends** — blue
+- **Task due dates** — green
+- **Reminders** — amber, the ones you add yourself
+
+Change a lease end date and the notice dates move with it, because they're
+derived rather than stored twice.
+
+Click a day to see everything on it in the panel, and add a reminder there —
+typed as a rent increase, renewal, visit, or anything else. Reminders can be
+ticked off or deleted.
+
+---
+
 ## Email digest
 
 A daily email, worst-first: anything past the 90-day line, then other notice

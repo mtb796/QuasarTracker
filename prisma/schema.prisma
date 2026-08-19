@@ -50,6 +50,7 @@ model User {
   createdTasks   Handoff[]     @relation("HandoffCreator")
   assignedTasks  Handoff[]     @relation("HandoffAssignee")
   renewalSteps   RenewalStep[]
+  reminders      Reminder[]
 }
 
 /// A shared update. Attaches to whatever it is about; all four targets are
@@ -126,8 +127,9 @@ model Property {
 
   units    Unit[]
   tenants  Tenant[]
-  notes    Note[]
-  handoffs Handoff[]
+  notes     Note[]
+  handoffs  Handoff[]
+  reminders Reminder[]
 
   /// Untouched AppFolio row, JSON-encoded.
   raw       String?
@@ -155,9 +157,10 @@ model Unit {
   /// Ours — e.g. "Turn in progress", "Owner approval pending".
   workStatus String?
 
-  tenants  Tenant[]
-  notes    Note[]
-  handoffs Handoff[]
+  tenants   Tenant[]
+  notes     Note[]
+  handoffs  Handoff[]
+  reminders Reminder[]
 
   raw       String?
   syncedAt  DateTime?
@@ -302,6 +305,35 @@ model EmailLog {
 
   @@index([to, kind, day])
   @@index([sentAt])
+}
+
+/// A dated note on the calendar.
+///
+/// Renewal milestones and lease ends already appear there automatically; this
+/// is for everything else — "call the owner", "inspection", "board meeting" —
+/// so the calendar is somewhere you can actually plan, not just a read-out.
+model Reminder {
+  id     String   @id @default(cuid())
+  title  String
+  note   String?
+  onDate DateTime
+
+  /// "general" | "increase" | "renewal" | "visit"
+  kind String @default("general")
+
+  /// Optional anchors, so a reminder can hang off a specific unit.
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitId     String?
+  unit       Unit?     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  done   Boolean @default(false)
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([onDate])
 }
 
 /// One row per sync attempt, so we can show "last synced" and debug failures.

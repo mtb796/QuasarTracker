@@ -1,33 +1,41 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Quasar brand
+   Quasar
    ---------------------------------------------------------------------------
-   Taken from the logo: a charcoal-slate accretion disk, a crimson jet, and an
-   amber core, with the crimson->amber gradient as the one bright accent.
+   Colours come from the logo: a charcoal-slate accretion disk, a crimson jet,
+   an amber core.
 
-   Slate carries the interface (text, primary buttons, the wordmark). Crimson
-   is the single action colour. Amber and crimson also do semantic duty on the
-   two unit states that need attention — vacant and on-notice — which keeps the
-   palette tight instead of introducing unrelated hues.
+   The palette is deliberately warm rather than the blue-grey most property
+   software defaults to — a cream page, softened ink, rounder corners and a
+   little more air. It's a tool two people use all day, so it should feel
+   closer to a well-kept notebook than an enterprise console, without giving up
+   the density the work actually needs.
 
-   These are Tailwind v4 @theme tokens, so each one generates real utilities:
-   --color-muted gives text-muted / bg-muted / border-muted, and so on.
+   Tailwind v4 @theme tokens: each generates real utilities (text-muted,
+   bg-accent, border-line, …).
    --------------------------------------------------------------------------- */
 
 @theme {
-  --color-ink: #343945;
+  --color-ink: #2f3038;
   --color-slate: #3d4250;
-  --color-muted: #767c8a;
-  --color-line: #e2e5eb;
-  --color-canvas: #f6f7f9;
+  --color-muted: #7b7669;
+  --color-line: #e8e2d6;
+  --color-canvas: #faf7f1;
+  --color-surface: #fffdf9;
 
   --color-accent: #e4335c;
   --color-accent-strong: #c8244a;
   --color-ember: #f5a623;
 
-  --color-crimson-tint: #fdeef2;
-  --color-ember-tint: #fef4e4;
+  --color-crimson-tint: #fdeef1;
+  --color-ember-tint: #fdf3e2;
+  --color-leaf: #2f7d5f;
+  --color-leaf-tint: #eaf4ee;
+  --color-sky: #3f6ea8;
+  --color-sky-tint: #eaf0f8;
+
+  --radius-card: 14px;
 }
 
 body {
@@ -36,26 +44,25 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* The wordmark reads as wide-tracked uppercase, matching the logo. */
 .wordmark {
   font-weight: 400;
   letter-spacing: 0.34em;
   text-transform: uppercase;
 }
 
-/* The logo's jet gradient, for the few places that earn a bright accent. */
 .quasar-gradient {
   background-image: linear-gradient(115deg, var(--color-accent), var(--color-ember));
 }
 
 @layer components {
   .card {
-    @apply rounded-lg border border-line bg-white;
+    @apply rounded-[14px] border border-line bg-surface;
+    box-shadow: 0 1px 2px rgb(47 48 56 / 0.04);
   }
   .btn {
-    @apply inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-md border
-           border-line bg-white px-3 py-1.5 text-sm font-medium text-ink
-           hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-full border
+           border-line bg-surface px-4 py-2 text-sm font-medium text-ink transition-colors
+           hover:bg-[--color-canvas] disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
     @apply border-transparent bg-ink text-white hover:bg-slate;
@@ -64,19 +71,47 @@ body {
     @apply border-transparent bg-accent text-white hover:bg-accent-strong;
   }
   .input {
-    @apply w-full rounded-md border border-line bg-white px-3 py-2 text-sm
-           outline-none focus:border-accent;
+    @apply w-full rounded-[10px] border border-line bg-surface px-3 py-2 text-sm
+           outline-none transition-colors focus:border-accent;
   }
   .label {
-    @apply mb-1 block text-xs font-medium uppercase tracking-wide text-muted;
+    @apply mb-1 block text-xs font-medium text-muted;
   }
   .pill {
-    @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
   }
   .th {
-    @apply px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted;
+    @apply px-3 py-2.5 text-left text-xs font-semibold text-muted;
   }
   .td {
-    @apply px-3 py-2 align-top text-sm;
+    @apply px-3 py-2.5 align-top text-sm;
+  }
+
+  /* Board */
+  .lane {
+    @apply rounded-[14px] border border-line p-3 transition-colors;
+  }
+  .lane-over {
+    @apply border-accent bg-crimson-tint/60;
+  }
+  .chip {
+    @apply cursor-grab rounded-[12px] border border-line bg-surface p-3 transition-shadow active:cursor-grabbing;
+  }
+  .chip:hover {
+    box-shadow: 0 2px 8px rgb(47 48 56 / 0.08);
+  }
+  .chip-dragging {
+    @apply opacity-40;
+  }
+
+  /* Calendar */
+  .day {
+    @apply min-h-[92px] rounded-[10px] border border-line bg-surface p-1.5 text-left align-top transition-colors;
+  }
+  .day-outside {
+    @apply bg-transparent text-muted/60;
+  }
+  .day-today {
+    @apply border-accent;
   }
 }

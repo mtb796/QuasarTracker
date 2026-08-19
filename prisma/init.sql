@@ -162,6 +162,22 @@ CREATE TABLE "EmailLog" (
 );
 
 -- CreateTable
+CREATE TABLE "Reminder" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "note" TEXT,
+    "onDate" TIMESTAMP(3) NOT NULL,
+    "kind" TEXT NOT NULL DEFAULT 'general',
+    "propertyId" TEXT,
+    "unitId" TEXT,
+    "done" BOOLEAN NOT NULL DEFAULT false,
+    "createdById" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Reminder_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "SyncRun" (
     "id" TEXT NOT NULL,
     "report" TEXT NOT NULL,
@@ -246,6 +262,9 @@ CREATE INDEX "EmailLog_to_kind_day_idx" ON "EmailLog"("to", "kind", "day");
 CREATE INDEX "EmailLog_sentAt_idx" ON "EmailLog"("sentAt");
 
 -- CreateIndex
+CREATE INDEX "Reminder_onDate_idx" ON "Reminder"("onDate");
+
+-- CreateIndex
 CREATE INDEX "SyncRun_startedAt_idx" ON "SyncRun"("startedAt");
 
 -- AddForeignKey
@@ -295,4 +314,13 @@ ALTER TABLE "RenewalStep" ADD CONSTRAINT "RenewalStep_renewalId_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "RenewalStep" ADD CONSTRAINT "RenewalStep_completedById_fkey" FOREIGN KEY ("completedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Reminder" ADD CONSTRAINT "Reminder_propertyId_fkey" FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Reminder" ADD CONSTRAINT "Reminder_unitId_fkey" FOREIGN KEY ("unitId") REFERENCES "Unit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Reminder" ADD CONSTRAINT "Reminder_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
