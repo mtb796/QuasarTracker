@@ -4,7 +4,7 @@ import { createHmac, randomBytes, scrypt as scryptCb, timingSafeEqual } from "no
 import { promisify } from "node:util";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { db } from "./db";
+import { db, resolveDatabaseUrl } from "./db";
 
 const scrypt = promisify(scryptCb) as (
   password: string,
@@ -15,14 +15,37 @@ const scrypt = promisify(scryptCb) as (
 const COOKIE = "quasar_session";
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
+/**
+ * Key used to sign session cookies.
+ *
+ * SESSION_SECRET is preferred, but falling over because it is missing means a
+ * deployment that has a working database still can't log anyone in — one more
+ * env var between "deployed" and "usable". So when it is absent the key is
+ * derived from the database URL, which is already a secret, already set (the
+ * app cannot run without it), and stable across restarts and redeploys.
+ *
+ * The tradeoff: change the database URL and everyone is signed out, since the
+ * derived key changes with it. Setting SESSION_SECRET explicitly avoids that,
+ * and /api/health says so.
+ */
 function secret(): string {
-  const value = process.env.SESSION_SECRET;
-  if (!value || value === "change-me-to-a-long-random-string") {
-    throw new Error(
-      "SESSION_SECRET is not set. Copy .env.example to .env and set it to a long random string.",
-    );
+  const explicit = process.env.SESSION_SECRET?.trim();
+  if (explicit && explicit !== "change-me-to-a-long-random-string") return explicit;
+
+  const { url } = resolveDatabaseUrl();
+  if (url) {
+    return createHmac("sha256", "quasar.session.v1").update(url).digest("hex");
   }
-  return value;
+
+  throw new Error(
+    "Neither SESSION_SECRET nor a database URL is set, so sessions cannot be signed.",
+  );
+}
+
+/** True when the key is derived rather than configured — surfaced in diagnostics. */
+export function usingDerivedSessionSecret(): boolean {
+  const explicit = process.env.SESSION_SECRET?.trim();
+  return !explicit || explicit === "change-me-to-a-long-random-string";
 }
 
 // --- passwords ------------------------------------------------------------

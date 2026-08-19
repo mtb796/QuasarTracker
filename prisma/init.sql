@@ -96,6 +96,7 @@ CREATE TABLE "Tenant" (
     "leaseEnd" TIMESTAMP(3),
     "rent" DOUBLE PRECISION,
     "status" TEXT NOT NULL DEFAULT 'unknown',
+    "subsidized" BOOLEAN,
     "raw" TEXT,
     "syncedAt" TIMESTAMP(3),
     "updatedAt" TIMESTAMP(3) NOT NULL,

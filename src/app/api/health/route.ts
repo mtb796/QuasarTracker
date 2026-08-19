@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db, resolveDatabaseUrl } from "@/lib/db";
+import { usingDerivedSessionSecret } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -26,9 +27,9 @@ export async function GET(): Promise<NextResponse> {
 
   const required = {
     databaseUrl: source ? `set (from ${source})` : "missing",
-    SESSION_SECRET:
-      Boolean(process.env.SESSION_SECRET?.trim()) &&
-      process.env.SESSION_SECRET !== "change-me-to-a-long-random-string",
+    sessionSigning: usingDerivedSessionSecret()
+      ? "derived from the database URL (fine; set SESSION_SECRET to make sessions survive a database URL change)"
+      : "SESSION_SECRET is set",
   };
   const optional = {
     APP_URL: Boolean(process.env.APP_URL?.trim()),
@@ -121,12 +122,6 @@ export async function GET(): Promise<NextResponse> {
   } catch (error) {
     ok = false;
     stages.accounts = { ok: false, detail: summarize(error) };
-  }
-
-  if (ok && !required.SESSION_SECRET) {
-    ok = false;
-    nextStep =
-      "SESSION_SECRET is missing or still the placeholder. Set it to a long random value, or sign-in will fail when the cookie is signed.";
   }
 
   return NextResponse.json(

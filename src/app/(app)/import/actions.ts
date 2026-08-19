@@ -100,6 +100,13 @@ export async function commitImport(
     revalidatePath("/", "layout");
     return { result };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Import failed." };
+    // Surface the real reason. A schema/table mismatch used to abort the action
+    // with nothing on screen, which reads as a hang rather than a failure.
+    const raw = error instanceof Error ? error.message : String(error);
+    const first = raw.split("\n").map((l) => l.trim()).filter(Boolean)[0] ?? "Import failed.";
+    const hint = /column .* does not exist|Unknown argument|no such column/i.test(raw)
+      ? " The database schema is older than this build — open /api/health, then re-run setup or `npx prisma db push`."
+      : "";
+    return { error: `${first.slice(0, 220)}${hint}` };
   }
 }
