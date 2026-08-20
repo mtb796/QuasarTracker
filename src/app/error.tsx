@@ -24,13 +24,24 @@ export default function ErrorPage({
           database connection, the tables, or the accounts.
         </p>
 
-        <div className="card mt-4 p-4">
-          <a className="text-sm font-medium text-accent hover:underline" href="/api/health">
-            Open /api/health →
-          </a>
-          <p className="mt-1 text-sm text-muted">
-            Reports exactly which step is failing and what to run next.
-          </p>
+        <div className="card mt-4 space-y-3 p-4">
+          <div>
+            <a className="text-sm font-medium text-accent hover:underline" href="/settings">
+              Settings → Database → Update schema →
+            </a>
+            <p className="mt-1 text-sm text-muted">
+              Most likely if this page is new: the deploy added a feature whose table isn&apos;t in
+              the database yet. Updating is additive and can&apos;t lose data.
+            </p>
+          </div>
+          <div className="border-t border-line pt-3">
+            <a className="text-sm font-medium text-accent hover:underline" href="/api/health">
+              Open /api/health →
+            </a>
+            <p className="mt-1 text-sm text-muted">
+              Reports which step is failing and what to run next.
+            </p>
+          </div>
         </div>
 
         <div className="mt-4 flex gap-2">

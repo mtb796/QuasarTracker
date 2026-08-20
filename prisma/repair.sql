@@ -1,0 +1,546 @@
+-- Generated from init.sql. Idempotent: safe to run repeatedly.
+
+CREATE SCHEMA IF NOT EXISTS "public";
+
+CREATE TABLE IF NOT EXISTS "User" (
+    "id" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "passwordHash" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "digestEnabled" BOOLEAN NOT NULL DEFAULT true,
+
+    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "Note" (
+    "id" TEXT NOT NULL,
+    "body" TEXT NOT NULL,
+    "authorId" TEXT NOT NULL,
+    "propertyId" TEXT,
+    "unitId" TEXT,
+    "tenantId" TEXT,
+    "ownerId" TEXT,
+    "pinned" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Note_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "Handoff" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "detail" TEXT,
+    "creatorId" TEXT NOT NULL,
+    "assigneeId" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'open',
+    "dueDate" TIMESTAMP(3),
+    "propertyId" TEXT,
+    "unitId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "completedAt" TIMESTAMP(3),
+
+    CONSTRAINT "Handoff_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "Property" (
+    "id" TEXT NOT NULL,
+    "appfolioId" TEXT,
+    "name" TEXT NOT NULL,
+    "address1" TEXT,
+    "city" TEXT,
+    "state" TEXT,
+    "zip" TEXT,
+    "propertyType" TEXT,
+    "workStatus" TEXT,
+    "ownerId" TEXT,
+    "raw" TEXT,
+    "syncedAt" TIMESTAMP(3),
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Property_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "Unit" (
+    "id" TEXT NOT NULL,
+    "appfolioId" TEXT,
+    "name" TEXT NOT NULL,
+    "propertyId" TEXT NOT NULL,
+    "bedrooms" DOUBLE PRECISION,
+    "bathrooms" DOUBLE PRECISION,
+    "squareFeet" INTEGER,
+    "marketRent" DOUBLE PRECISION,
+    "occupancy" TEXT NOT NULL DEFAULT 'unknown',
+    "workStatus" TEXT,
+    "raw" TEXT,
+    "syncedAt" TIMESTAMP(3),
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Unit_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "Tenant" (
+    "id" TEXT NOT NULL,
+    "appfolioId" TEXT,
+    "name" TEXT NOT NULL,
+    "email" TEXT,
+    "phone" TEXT,
+    "unitId" TEXT,
+    "propertyId" TEXT,
+    "leaseStart" TIMESTAMP(3),
+    "leaseEnd" TIMESTAMP(3),
+    "rent" DOUBLE PRECISION,
+    "status" TEXT NOT NULL DEFAULT 'unknown',
+    "subsidized" BOOLEAN,
+    "raw" TEXT,
+    "syncedAt" TIMESTAMP(3),
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Tenant_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "Renewal" (
+    "id" TEXT NOT NULL,
+    "tenantId" TEXT NOT NULL,
+    "leaseEnd" TIMESTAMP(3) NOT NULL,
+    "proposedRent" DOUBLE PRECISION,
+    "decision" TEXT,
+    "notes" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Renewal_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "RenewalStep" (
+    "id" TEXT NOT NULL,
+    "renewalId" TEXT NOT NULL,
+    "milestone" INTEGER NOT NULL,
+    "dueOn" TIMESTAMP(3) NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'pending',
+    "completedAt" TIMESTAMP(3),
+    "completedById" TEXT,
+    "note" TEXT,
+
+    CONSTRAINT "RenewalStep_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "Owner" (
+    "id" TEXT NOT NULL,
+    "appfolioId" TEXT,
+    "name" TEXT NOT NULL,
+    "email" TEXT,
+    "phone" TEXT,
+    "company" TEXT,
+    "raw" TEXT,
+    "syncedAt" TIMESTAMP(3),
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Owner_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "EmailLog" (
+    "id" TEXT NOT NULL,
+    "to" TEXT NOT NULL,
+    "subject" TEXT NOT NULL,
+    "kind" TEXT NOT NULL,
+    "status" TEXT NOT NULL,
+    "error" TEXT,
+    "day" TEXT NOT NULL,
+    "sentAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "EmailLog_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "Reminder" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "note" TEXT,
+    "onDate" TIMESTAMP(3) NOT NULL,
+    "kind" TEXT NOT NULL DEFAULT 'general',
+    "propertyId" TEXT,
+    "unitId" TEXT,
+    "done" BOOLEAN NOT NULL DEFAULT false,
+    "createdById" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Reminder_pkey" PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS "SyncRun" (
+    "id" TEXT NOT NULL,
+    "report" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'running',
+    "rowsFetched" INTEGER NOT NULL DEFAULT 0,
+    "rowsWritten" INTEGER NOT NULL DEFAULT 0,
+    "error" TEXT,
+    "columns" TEXT,
+    "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "finishedAt" TIMESTAMP(3),
+
+    CONSTRAINT "SyncRun_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "User_email_key" ON "User"("email");
+
+CREATE INDEX IF NOT EXISTS "Note_propertyId_createdAt_idx" ON "Note"("propertyId", "createdAt");
+
+CREATE INDEX IF NOT EXISTS "Note_unitId_createdAt_idx" ON "Note"("unitId", "createdAt");
+
+CREATE INDEX IF NOT EXISTS "Note_createdAt_idx" ON "Note"("createdAt");
+
+CREATE INDEX IF NOT EXISTS "Handoff_status_dueDate_idx" ON "Handoff"("status", "dueDate");
+
+CREATE INDEX IF NOT EXISTS "Handoff_assigneeId_status_idx" ON "Handoff"("assigneeId", "status");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Property_appfolioId_key" ON "Property"("appfolioId");
+
+CREATE INDEX IF NOT EXISTS "Property_name_idx" ON "Property"("name");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Unit_appfolioId_key" ON "Unit"("appfolioId");
+
+CREATE INDEX IF NOT EXISTS "Unit_propertyId_idx" ON "Unit"("propertyId");
+
+CREATE INDEX IF NOT EXISTS "Unit_occupancy_idx" ON "Unit"("occupancy");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Tenant_appfolioId_key" ON "Tenant"("appfolioId");
+
+CREATE INDEX IF NOT EXISTS "Tenant_name_idx" ON "Tenant"("name");
+
+CREATE INDEX IF NOT EXISTS "Tenant_status_idx" ON "Tenant"("status");
+
+CREATE INDEX IF NOT EXISTS "Tenant_leaseEnd_idx" ON "Tenant"("leaseEnd");
+
+CREATE INDEX IF NOT EXISTS "Renewal_leaseEnd_idx" ON "Renewal"("leaseEnd");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Renewal_tenantId_leaseEnd_key" ON "Renewal"("tenantId", "leaseEnd");
+
+CREATE INDEX IF NOT EXISTS "RenewalStep_status_dueOn_idx" ON "RenewalStep"("status", "dueOn");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "RenewalStep_renewalId_milestone_key" ON "RenewalStep"("renewalId", "milestone");
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Owner_appfolioId_key" ON "Owner"("appfolioId");
+
+CREATE INDEX IF NOT EXISTS "Owner_name_idx" ON "Owner"("name");
+
+CREATE INDEX IF NOT EXISTS "EmailLog_to_kind_day_idx" ON "EmailLog"("to", "kind", "day");
+
+CREATE INDEX IF NOT EXISTS "EmailLog_sentAt_idx" ON "EmailLog"("sentAt");
+
+CREATE INDEX IF NOT EXISTS "Reminder_onDate_idx" ON "Reminder"("onDate");
+
+CREATE INDEX IF NOT EXISTS "SyncRun_startedAt_idx" ON "SyncRun"("startedAt");
+
+DO $$ BEGIN
+  ALTER TABLE "Note" ADD CONSTRAINT "Note_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Note" ADD CONSTRAINT "Note_propertyId_fkey" FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Note" ADD CONSTRAINT "Note_unitId_fkey" FOREIGN KEY ("unitId") REFERENCES "Unit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Note" ADD CONSTRAINT "Note_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Note" ADD CONSTRAINT "Note_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "Owner"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Handoff" ADD CONSTRAINT "Handoff_creatorId_fkey" FOREIGN KEY ("creatorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Handoff" ADD CONSTRAINT "Handoff_assigneeId_fkey" FOREIGN KEY ("assigneeId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Handoff" ADD CONSTRAINT "Handoff_propertyId_fkey" FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Handoff" ADD CONSTRAINT "Handoff_unitId_fkey" FOREIGN KEY ("unitId") REFERENCES "Unit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Property" ADD CONSTRAINT "Property_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "Owner"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Unit" ADD CONSTRAINT "Unit_propertyId_fkey" FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Tenant" ADD CONSTRAINT "Tenant_unitId_fkey" FOREIGN KEY ("unitId") REFERENCES "Unit"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Tenant" ADD CONSTRAINT "Tenant_propertyId_fkey" FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Renewal" ADD CONSTRAINT "Renewal_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "RenewalStep" ADD CONSTRAINT "RenewalStep_renewalId_fkey" FOREIGN KEY ("renewalId") REFERENCES "Renewal"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "RenewalStep" ADD CONSTRAINT "RenewalStep_completedById_fkey" FOREIGN KEY ("completedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Reminder" ADD CONSTRAINT "Reminder_propertyId_fkey" FOREIGN KEY ("propertyId") REFERENCES "Property"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Reminder" ADD CONSTRAINT "Reminder_unitId_fkey" FOREIGN KEY ("unitId") REFERENCES "Unit"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "Reminder" ADD CONSTRAINT "Reminder_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "id" TEXT;
+
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "email" TEXT;
+
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "name" TEXT;
+
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "passwordHash" TEXT;
+
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "digestEnabled" BOOLEAN NOT NULL DEFAULT true;
+
+ALTER TABLE "Note" ADD COLUMN IF NOT EXISTS "id" TEXT;
+
+ALTER TABLE "Note" ADD COLUMN IF NOT EXISTS "body" TEXT;
+
+ALTER TABLE "Note" ADD COLUMN IF NOT EXISTS "authorId" TEXT;
+
+ALTER TABLE "Note" ADD COLUMN IF NOT EXISTS "propertyId" TEXT;
+
+ALTER TABLE "Note" ADD COLUMN IF NOT EXISTS "unitId" TEXT;
+
+ALTER TABLE "Note" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+
+ALTER TABLE "Note" ADD COLUMN IF NOT EXISTS "ownerId" TEXT;
+
+ALTER TABLE "Note" ADD COLUMN IF NOT EXISTS "pinned" BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE "Note" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE "Handoff" ADD COLUMN IF NOT EXISTS "id" TEXT;
+
+ALTER TABLE "Handoff" ADD COLUMN IF NOT EXISTS "title" TEXT;
+
+ALTER TABLE "Handoff" ADD COLUMN IF NOT EXISTS "detail" TEXT;
+
+ALTER TABLE "Handoff" ADD COLUMN IF NOT EXISTS "creatorId" TEXT;
+
+ALTER TABLE "Handoff" ADD COLUMN IF NOT EXISTS "assigneeId" TEXT;
+
+ALTER TABLE "Handoff" ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'open';
+
+ALTER TABLE "Handoff" ADD COLUMN IF NOT EXISTS "dueDate" TIMESTAMP(3);
+
+ALTER TABLE "Handoff" ADD COLUMN IF NOT EXISTS "propertyId" TEXT;
+
+ALTER TABLE "Handoff" ADD COLUMN IF NOT EXISTS "unitId" TEXT;
+
+ALTER TABLE "Handoff" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE "Handoff" ADD COLUMN IF NOT EXISTS "completedAt" TIMESTAMP(3);
+
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "id" TEXT;
+
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "appfolioId" TEXT;
+
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "name" TEXT;
+
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "address1" TEXT;
+
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "city" TEXT;
+
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "state" TEXT;
+
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "zip" TEXT;
+
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "propertyType" TEXT;
+
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "workStatus" TEXT;
+
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "ownerId" TEXT;
+
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "raw" TEXT;
+
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "syncedAt" TIMESTAMP(3);
+
+ALTER TABLE "Property" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3);
+
+ALTER TABLE "Unit" ADD COLUMN IF NOT EXISTS "id" TEXT;
+
+ALTER TABLE "Unit" ADD COLUMN IF NOT EXISTS "appfolioId" TEXT;
+
+ALTER TABLE "Unit" ADD COLUMN IF NOT EXISTS "name" TEXT;
+
+ALTER TABLE "Unit" ADD COLUMN IF NOT EXISTS "propertyId" TEXT;
+
+ALTER TABLE "Unit" ADD COLUMN IF NOT EXISTS "bedrooms" DOUBLE PRECISION;
+
+ALTER TABLE "Unit" ADD COLUMN IF NOT EXISTS "bathrooms" DOUBLE PRECISION;
+
+ALTER TABLE "Unit" ADD COLUMN IF NOT EXISTS "squareFeet" INTEGER;
+
+ALTER TABLE "Unit" ADD COLUMN IF NOT EXISTS "marketRent" DOUBLE PRECISION;
+
+ALTER TABLE "Unit" ADD COLUMN IF NOT EXISTS "occupancy" TEXT NOT NULL DEFAULT 'unknown';
+
+ALTER TABLE "Unit" ADD COLUMN IF NOT EXISTS "workStatus" TEXT;
+
+ALTER TABLE "Unit" ADD COLUMN IF NOT EXISTS "raw" TEXT;
+
+ALTER TABLE "Unit" ADD COLUMN IF NOT EXISTS "syncedAt" TIMESTAMP(3);
+
+ALTER TABLE "Unit" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3);
+
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "id" TEXT;
+
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "appfolioId" TEXT;
+
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "name" TEXT;
+
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "email" TEXT;
+
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "phone" TEXT;
+
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "unitId" TEXT;
+
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "propertyId" TEXT;
+
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "leaseStart" TIMESTAMP(3);
+
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "leaseEnd" TIMESTAMP(3);
+
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "rent" DOUBLE PRECISION;
+
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'unknown';
+
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "subsidized" BOOLEAN;
+
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "raw" TEXT;
+
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "syncedAt" TIMESTAMP(3);
+
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3);
+
+ALTER TABLE "Renewal" ADD COLUMN IF NOT EXISTS "id" TEXT;
+
+ALTER TABLE "Renewal" ADD COLUMN IF NOT EXISTS "tenantId" TEXT;
+
+ALTER TABLE "Renewal" ADD COLUMN IF NOT EXISTS "leaseEnd" TIMESTAMP(3);
+
+ALTER TABLE "Renewal" ADD COLUMN IF NOT EXISTS "proposedRent" DOUBLE PRECISION;
+
+ALTER TABLE "Renewal" ADD COLUMN IF NOT EXISTS "decision" TEXT;
+
+ALTER TABLE "Renewal" ADD COLUMN IF NOT EXISTS "notes" TEXT;
+
+ALTER TABLE "Renewal" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE "Renewal" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3);
+
+ALTER TABLE "RenewalStep" ADD COLUMN IF NOT EXISTS "id" TEXT;
+
+ALTER TABLE "RenewalStep" ADD COLUMN IF NOT EXISTS "renewalId" TEXT;
+
+ALTER TABLE "RenewalStep" ADD COLUMN IF NOT EXISTS "milestone" INTEGER;
+
+ALTER TABLE "RenewalStep" ADD COLUMN IF NOT EXISTS "dueOn" TIMESTAMP(3);
+
+ALTER TABLE "RenewalStep" ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'pending';
+
+ALTER TABLE "RenewalStep" ADD COLUMN IF NOT EXISTS "completedAt" TIMESTAMP(3);
+
+ALTER TABLE "RenewalStep" ADD COLUMN IF NOT EXISTS "completedById" TEXT;
+
+ALTER TABLE "RenewalStep" ADD COLUMN IF NOT EXISTS "note" TEXT;
+
+ALTER TABLE "Owner" ADD COLUMN IF NOT EXISTS "id" TEXT;
+
+ALTER TABLE "Owner" ADD COLUMN IF NOT EXISTS "appfolioId" TEXT;
+
+ALTER TABLE "Owner" ADD COLUMN IF NOT EXISTS "name" TEXT;
+
+ALTER TABLE "Owner" ADD COLUMN IF NOT EXISTS "email" TEXT;
+
+ALTER TABLE "Owner" ADD COLUMN IF NOT EXISTS "phone" TEXT;
+
+ALTER TABLE "Owner" ADD COLUMN IF NOT EXISTS "company" TEXT;
+
+ALTER TABLE "Owner" ADD COLUMN IF NOT EXISTS "raw" TEXT;
+
+ALTER TABLE "Owner" ADD COLUMN IF NOT EXISTS "syncedAt" TIMESTAMP(3);
+
+ALTER TABLE "Owner" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3);
+
+ALTER TABLE "EmailLog" ADD COLUMN IF NOT EXISTS "id" TEXT;
+
+ALTER TABLE "EmailLog" ADD COLUMN IF NOT EXISTS "to" TEXT;
+
+ALTER TABLE "EmailLog" ADD COLUMN IF NOT EXISTS "subject" TEXT;
+
+ALTER TABLE "EmailLog" ADD COLUMN IF NOT EXISTS "kind" TEXT;
+
+ALTER TABLE "EmailLog" ADD COLUMN IF NOT EXISTS "status" TEXT;
+
+ALTER TABLE "EmailLog" ADD COLUMN IF NOT EXISTS "error" TEXT;
+
+ALTER TABLE "EmailLog" ADD COLUMN IF NOT EXISTS "day" TEXT;
+
+ALTER TABLE "EmailLog" ADD COLUMN IF NOT EXISTS "sentAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE "Reminder" ADD COLUMN IF NOT EXISTS "id" TEXT;
+
+ALTER TABLE "Reminder" ADD COLUMN IF NOT EXISTS "title" TEXT;
+
+ALTER TABLE "Reminder" ADD COLUMN IF NOT EXISTS "note" TEXT;
+
+ALTER TABLE "Reminder" ADD COLUMN IF NOT EXISTS "onDate" TIMESTAMP(3);
+
+ALTER TABLE "Reminder" ADD COLUMN IF NOT EXISTS "kind" TEXT NOT NULL DEFAULT 'general';
+
+ALTER TABLE "Reminder" ADD COLUMN IF NOT EXISTS "propertyId" TEXT;
+
+ALTER TABLE "Reminder" ADD COLUMN IF NOT EXISTS "unitId" TEXT;
+
+ALTER TABLE "Reminder" ADD COLUMN IF NOT EXISTS "done" BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE "Reminder" ADD COLUMN IF NOT EXISTS "createdById" TEXT;
+
+ALTER TABLE "Reminder" ADD COLUMN IF NOT EXISTS "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE "SyncRun" ADD COLUMN IF NOT EXISTS "id" TEXT;
+
+ALTER TABLE "SyncRun" ADD COLUMN IF NOT EXISTS "report" TEXT;
+
+ALTER TABLE "SyncRun" ADD COLUMN IF NOT EXISTS "status" TEXT NOT NULL DEFAULT 'running';
+
+ALTER TABLE "SyncRun" ADD COLUMN IF NOT EXISTS "rowsFetched" INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE "SyncRun" ADD COLUMN IF NOT EXISTS "rowsWritten" INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE "SyncRun" ADD COLUMN IF NOT EXISTS "error" TEXT;
+
+ALTER TABLE "SyncRun" ADD COLUMN IF NOT EXISTS "columns" TEXT;
+
+ALTER TABLE "SyncRun" ADD COLUMN IF NOT EXISTS "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE "SyncRun" ADD COLUMN IF NOT EXISTS "finishedAt" TIMESTAMP(3);

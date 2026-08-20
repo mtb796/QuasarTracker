@@ -130,6 +130,21 @@ ticked off or deleted.
 
 ---
 
+## Keeping the database in step with a deploy
+
+Deploys deliberately don't run migrations, so a database created before a
+feature existed doesn't gain its tables — and the page that uses them fails.
+
+**Settings → Database → Update database schema** fixes that in one click. It
+applies a generated, idempotent script: missing tables, columns, indexes and
+foreign keys get added; nothing is ever dropped or renamed, so it can't lose
+data. Settings names any missing tables, and the error page points here.
+
+Run it after a deploy that adds features. Two things it can't do — rename a
+column or change a type — still need a real migration.
+
+---
+
 ## Email digest
 
 A daily email, worst-first: anything past the 90-day line, then other notice

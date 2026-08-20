@@ -13,6 +13,7 @@ import {
 import { syncAll } from "@/lib/sync";
 import { generateRenewals } from "@/lib/renewals";
 import { sendDigests } from "@/lib/send-digest";
+import { repairSchema } from "@/lib/schema-repair";
 
 /** Server actions return this so forms can show a message without throwing. */
 export type ActionState = { error?: string; ok?: string };
@@ -375,4 +376,25 @@ export async function removeTeammate(_prev: ActionState, formData: FormData): Pr
 
   revalidatePath("/settings");
   return { ok: `Removed ${target.name}.` };
+}
+
+
+// --- schema -----------------------------------------------------------------
+
+/** Adds any tables or columns this build expects but the database is missing. */
+export async function runSchemaRepair(_prev: ActionState, _formData: FormData): Promise<ActionState> {
+  await requireUser();
+  const result = await repairSchema();
+  revalidatePath("/", "layout");
+
+  if (result.failed.length > 0) {
+    return {
+      error: `${result.failed.length} statement${result.failed.length === 1 ? "" : "s"} failed: ${result.failed[0]}`,
+    };
+  }
+  // Most statements are IF NOT EXISTS, so they succeed whether or not they
+  // changed anything — "checked" is the honest word, not "applied".
+  return {
+    ok: `Database is up to date. ${result.applied + result.skipped} statements checked, none failed.`,
+  };
 }

@@ -6,6 +6,8 @@ import { toggleDigest } from "@/app/actions";
 import { SyncButton } from "@/components/SyncButton";
 import { TestDigestButton } from "@/components/TestDigestButton";
 import { PeopleManager } from "@/components/PeopleManager";
+import { SchemaRepair } from "@/components/SchemaRepair";
+import { missingTables } from "@/lib/schema-repair";
 import { PageHeader } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +19,8 @@ export default async function SettingsPage() {
   const emailTransport = transport();
   const from = fromAddress();
   const cronReady = Boolean(process.env.CRON_SECRET?.trim());
+
+  const missing = await missingTables().catch(() => [] as string[]);
 
   const [runs, users, emails, me] = await Promise.all([
     db.syncRun.findMany({ orderBy: { startedAt: "desc" }, take: 12 }),
@@ -31,6 +35,15 @@ export default async function SettingsPage() {
   return (
     <div className="max-w-3xl">
       <PageHeader title="Settings" />
+
+      <section className={`card mb-6 p-4 ${missing.length > 0 ? "border-accent/50" : ""}`}>
+        <h2 className="mb-1 text-sm font-semibold">Database</h2>
+        <p className="mb-3 text-sm text-muted">
+          Deploys don&apos;t change the database on their own, so a new feature can arrive before
+          its table does.
+        </p>
+        <SchemaRepair missing={missing} />
+      </section>
 
       <section className="card mb-6 p-4">
         <h2 className="mb-1 text-sm font-semibold">AppFolio connection</h2>
